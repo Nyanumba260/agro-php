@@ -79,4 +79,15 @@ function hashPassword($password) {
 function verifyPassword($password, $hash) {
     return password_verify($password, $hash);
 }
+
+// M-Pesa configuration
+// Paste your Daraja credentials here
+// For local testing, use sandbox and a public callback URL via ngrok
+
+define('MPESA_CONSUMER_KEY', getenv('MPESA_CONSUMER_KEY') ?: (isset($_ENV['MPESA_CONSUMER_KEY']) ? $_ENV['MPESA_CONSUMER_KEY'] : 'ejHQkvAr0GqxpGjNRdxg3A84tJbnj2mk5vANmAGnP7PsgSjC'));
+define('MPESA_CONSUMER_SECRET', getenv('MPESA_CONSUMER_SECRET') ?: (isset($_ENV['MPESA_CONSUMER_SECRET']) ? $_ENV['MPESA_CONSUMER_SECRET'] : 'o5N8FZm5e2P191tcgViQeCuXOYPzDYVt2wvIP8JMhDS3Vz9soOoEmGhaQGn8E7PC'));
+define('MPESA_SHORTCODE', getenv('MPESA_SHORTCODE') ?: (isset($_ENV['MPESA_SHORTCODE']) ? $_ENV['MPESA_SHORTCODE'] : '174379'));
+define('MPESA_PASSKEY', getenv('MPESA_PASSKEY') ?: (isset($_ENV['MPESA_PASSKEY']) ? $_ENV['MPESA_PASSKEY'] : ''));
+define('MPESA_CALLBACK_URL', getenv('MPESA_CALLBACK_URL') ?: (isset($_ENV['MPESA_CALLBACK_URL']) ? $_ENV['MPESA_CALLBACK_URL'] : 'https://dashboard.ngrok.com/early-access'));
+define('MPESA_ENV', getenv('MPESA_ENV') ?: (isset($_ENV['MPESA_ENV']) ? $_ENV['MPESA_ENV'] : 'sandbox'));
 ?>

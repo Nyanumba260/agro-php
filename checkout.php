@@ -1,5 +1,6 @@
 <?php
 include 'includes/config.php';
+include 'includes/mpesa.php';
 requireRole(ROLE_BUYER);
 
 $user_id = $_SESSION['user_id'];
@@ -38,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $delivery_charge = $delivery_charges[$delivery_location] ?? 300;
         $total = $subtotal + $delivery_charge;
 
+        ensureMpesaTables();
+
         // Create order
         $order_query = "INSERT INTO orders (user_id, total_amount, delivery_location, delivery_charge, delivery_address, payment_method, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')";
         $stmt = $conn->prepare($order_query);
@@ -55,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $cart_items_array = [];
 
             while ($item = $cart_result->fetch_assoc()) {
-                $cart_items_array[] = $item; // Store for later quantity update
+                $cart_items_array[] = $item;
                 $item_query = "INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)";
                 $stmt3 = $conn->prepare($item_query);
                 $stmt3->bind_param('iiid', $order_id, $item['product_id'], $item['quantity'], $item['price']);
@@ -63,11 +66,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt3->close();
             }
             $stmt2->close();
-            
+
+            if ($payment_method === 'mpesa') {
+                $mpesa_result = sendMpesaStkPush($phone, $total, $order_id);
+
+                if ($mpesa_result['success']) {
+                    storeMpesaPaymentRecord(
+                        $order_id,
+                        $mpesa_result['checkout_request_id'] ?? null,
+                        $mpesa_result['merchant_request_id'] ?? null,
+                        'pending',
+                        null,
+                        null,
+                        $phone,
+                        $total
+                    );
+
+                    $redirect_url = 'payment-prompt.php?order_id=' . $order_id . '&phone=' . urlencode($phone) . '&amount=' . urlencode($total);
+                    header('Location: ' . $redirect_url);
+                    exit;
+                }
+
+                $error = $mpesa_result['message'] ?? 'Unable to start M-Pesa payment.';
+            }
+
             // Update product quantities (reduce by quantity purchased)
             $update_qty_query = "UPDATE products SET quantity = quantity - ? WHERE id = ?";
             $stmt5 = $conn->prepare($update_qty_query);
-            
+
             foreach ($cart_items_array as $item) {
                 $qty = $item['quantity'];
                 $prod_id = $item['product_id'];
@@ -83,7 +109,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt4->execute();
             $stmt4->close();
 
-            // Redirect to confirmation
             header('Location: order-confirmation.php?order_id=' . $order_id);
             exit;
         } else {
@@ -179,8 +204,11 @@ $total = $subtotal + $delivery_charge;
                 </div>
 
                 <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1.1rem;">
-                    <i class="fas fa-check"></i> Place Order
+                    <i class="fas fa-check"></i> Pay Now
                 </button>
+                <p style="margin-top: 0.75rem; color: var(--text-light); font-size: 0.95rem;">
+                    For M-Pesa, a payment prompt will be sent to the phone number above so you can complete the purchase securely.
+                </p>
             </form>
 
             <!-- Order Summary -->
@@ -210,7 +238,7 @@ $total = $subtotal + $delivery_charge;
 
     <!-- Footer -->
     <footer class="footer">
-        <p>&copy; 2024 AGROBIASHARA. Checkout.</p>
+        <p>&copy; 2026 AGROBIASHARA. Checkout.</p>
     </footer>
 
     <script>

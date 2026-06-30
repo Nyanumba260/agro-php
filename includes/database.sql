@@ -68,6 +68,23 @@ CREATE TABLE IF NOT EXISTS order_items (
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
+-- M-Pesa Payments Table
+CREATE TABLE IF NOT EXISTS mpesa_payments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    order_id INT NOT NULL,
+    checkout_request_id VARCHAR(100) NULL,
+    merchant_request_id VARCHAR(100) NULL,
+    receipt_number VARCHAR(100) NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    result_code VARCHAR(20) NULL,
+    result_desc TEXT NULL,
+    phone_number VARCHAR(20) NULL,
+    amount DECIMAL(10, 2) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_order_payment (order_id)
+);
+
 -- Delivery Charges Table
 CREATE TABLE IF NOT EXISTS delivery_charges (
     id INT PRIMARY KEY AUTO_INCREMENT,

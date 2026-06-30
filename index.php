@@ -204,7 +204,7 @@ if (isLoggedIn()) {
 
     <!-- Footer -->
     <footer class="footer">
-        <p>&copy; 2024 AGROBIASHARA. Fresh Farm Produce Marketplace.</p>
+        <p>&copy; 2026 AGROBIASHARA. Fresh Farm Produce Marketplace.</p>
         <p>Email: Agrobiashara@gmail.com | Phone: +254 722 736 023</p>
     </footer>
 </body>

@@ -12,92 +12,122 @@ if (!is_dir($upload_dir)) {
     mkdir($upload_dir, 0755, true);
 }
 
-// Handle add/edit product with image upload
+// Handle add/edit product with image upload or account deletion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = sanitize($_POST['action']);
-    $name = sanitize($_POST['name']);
-    $description = sanitize($_POST['description']);
-    $category = sanitize($_POST['category']);
-    $price = floatval($_POST['price']);
-    $quantity = intval($_POST['quantity']);
-    $image_url = null;
 
-    if (empty($name) || $price <= 0) {
-        $error = 'Product name and valid price are required';
-    } else {
-        // Handle image upload
-        if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] === UPLOAD_ERR_OK) {
-            $file_tmp = $_FILES['product_image']['tmp_name'];
-            $file_name = $_FILES['product_image']['name'];
-            $file_size = $_FILES['product_image']['size'];
-            
-            // Validate file type
-            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mime_type = finfo_file($finfo, $file_tmp);
-            finfo_close($finfo);
-            
-            if (!in_array($mime_type, $allowed_types)) {
-                $error = 'Only image files (JPG, PNG, GIF, WebP) are allowed';
-            } elseif ($file_size > 5 * 1024 * 1024) { // 5MB limit
-                $error = 'Image size must be less than 5MB';
-            } else {
-                // Generate unique filename
-                $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
-                $unique_filename = 'product_' . $farmer_id . '_' . time() . '_' . uniqid() . '.' . $file_extension;
-                $file_path = $upload_dir . '/' . $unique_filename;
-                
-                if (move_uploaded_file($file_tmp, $file_path)) {
-                    $image_url = $file_path;
-                } else {
-                    $error = 'Error uploading image';
-                }
+    if ($action === 'delete_account') {
+        // Delete product images first so there are no orphan files
+        $image_query = "SELECT image_url FROM products WHERE farmer_id = ?";
+        $image_stmt = $conn->prepare($image_query);
+        $image_stmt->bind_param('i', $farmer_id);
+        $image_stmt->execute();
+        $image_result = $image_stmt->get_result();
+        while ($image_row = $image_result->fetch_assoc()) {
+            if ($image_row['image_url'] && file_exists($image_row['image_url'])) {
+                unlink($image_row['image_url']);
             }
         }
+        $image_stmt->close();
 
-        // Only proceed if no upload error or no image was uploaded
-        if (empty($error)) {
-            if ($action === 'add') {
-                $insert_query = "INSERT INTO products (farmer_id, name, description, category, price, quantity, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)";
-                $stmt = $conn->prepare($insert_query);
-                $stmt->bind_param('isssids', $farmer_id, $name, $description, $category, $price, $quantity, $image_url);
-                if ($stmt->execute()) {
-                    $success = 'Product added successfully!';
+        // Delete the user account and rely on cascade deletes for related data
+        $delete_query = "DELETE FROM users WHERE id = ?";
+        $stmt = $conn->prepare($delete_query);
+        $stmt->bind_param('i', $farmer_id);
+        if ($stmt->execute()) {
+            $stmt->close();
+            session_destroy();
+            header('Location: login.php');
+            exit;
+        } else {
+            $error = 'Error deleting account';
+            $stmt->close();
+        }
+    } else {
+        $name = sanitize($_POST['name']);
+        $description = sanitize($_POST['description']);
+        $category = sanitize($_POST['category']);
+        $price = floatval($_POST['price']);
+        $quantity = intval($_POST['quantity']);
+        $image_url = null;
+
+        if (empty($name) || $price <= 0) {
+            $error = 'Product name and valid price are required';
+        } else {
+            // Handle image upload
+            if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] === UPLOAD_ERR_OK) {
+                $file_tmp = $_FILES['product_image']['tmp_name'];
+                $file_name = $_FILES['product_image']['name'];
+                $file_size = $_FILES['product_image']['size'];
+                
+                // Validate file type
+                $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mime_type = finfo_file($finfo, $file_tmp);
+                finfo_close($finfo);
+                
+                if (!in_array($mime_type, $allowed_types)) {
+                    $error = 'Only image files (JPG, PNG, GIF, WebP) are allowed';
+                } elseif ($file_size > 5 * 1024 * 1024) { // 5MB limit
+                    $error = 'Image size must be less than 5MB';
                 } else {
-                    $error = 'Error adding product';
-                }
-                $stmt->close();
-            } elseif ($action === 'edit') {
-                $product_id = intval($_POST['product_id']);
-                if ($image_url) {
-                    // Delete old image if exists
-                    $old_query = "SELECT image_url FROM products WHERE id = ? AND farmer_id = ?";
-                    $old_stmt = $conn->prepare($old_query);
-                    $old_stmt->bind_param('ii', $product_id, $farmer_id);
-                    $old_stmt->execute();
-                    $old_result = $old_stmt->get_result();
-                    if ($old_result->num_rows > 0) {
-                        $old_row = $old_result->fetch_assoc();
-                        if ($old_row['image_url'] && file_exists($old_row['image_url'])) {
-                            unlink($old_row['image_url']);
-                        }
-                    }
-                    $old_stmt->close();
+                    // Generate unique filename
+                    $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
+                    $unique_filename = 'product_' . $farmer_id . '_' . time() . '_' . uniqid() . '.' . $file_extension;
+                    $file_path = $upload_dir . '/' . $unique_filename;
                     
-                    $update_query = "UPDATE products SET name = ?, description = ?, category = ?, price = ?, quantity = ?, image_url = ? WHERE id = ? AND farmer_id = ?";
-                    $stmt = $conn->prepare($update_query);
-                    $stmt->bind_param('sssddisi', $name, $description, $category, $price, $quantity, $image_url, $product_id, $farmer_id);
-                } else {
-                    $update_query = "UPDATE products SET name = ?, description = ?, category = ?, price = ?, quantity = ? WHERE id = ? AND farmer_id = ?";
-                    $stmt = $conn->prepare($update_query);
-                    $stmt->bind_param('sssdii', $name, $description, $category, $price, $quantity, $product_id, $farmer_id);
+                    if (move_uploaded_file($file_tmp, $file_path)) {
+                        $image_url = $file_path;
+                    } else {
+                        $error = 'Error uploading image';
+                    }
                 }
-                if ($stmt->execute()) {
-                    $success = 'Product updated successfully!';
-                } else {
-                    $error = 'Error updating product';
+            }
+
+            // Only proceed if no upload error or no image was uploaded
+            if (empty($error)) {
+                if ($action === 'add') {
+                    $insert_query = "INSERT INTO products (farmer_id, name, description, category, price, quantity, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                    $stmt = $conn->prepare($insert_query);
+                    $stmt->bind_param('isssids', $farmer_id, $name, $description, $category, $price, $quantity, $image_url);
+                    if ($stmt->execute()) {
+                        $success = 'Product added successfully!';
+                    } else {
+                        $error = 'Error adding product';
+                    }
+                    $stmt->close();
+                } elseif ($action === 'edit') {
+                    $product_id = intval($_POST['product_id']);
+                    if ($image_url) {
+                        // Delete old image if exists
+                        $old_query = "SELECT image_url FROM products WHERE id = ? AND farmer_id = ?";
+                        $old_stmt = $conn->prepare($old_query);
+                        $old_stmt->bind_param('ii', $product_id, $farmer_id);
+                        $old_stmt->execute();
+                        $old_result = $old_stmt->get_result();
+                        if ($old_result->num_rows > 0) {
+                            $old_row = $old_result->fetch_assoc();
+                            if ($old_row['image_url'] && file_exists($old_row['image_url'])) {
+                                unlink($old_row['image_url']);
+                            }
+                        }
+                        $old_stmt->close();
+                        
+                        $update_query = "UPDATE products SET name = ?, description = ?, category = ?, price = ?, quantity = ?, image_url = ? WHERE id = ? AND farmer_id = ?";
+                        $stmt = $conn->prepare($update_query);
+                        $stmt->bind_param('sssddisi', $name, $description, $category, $price, $quantity, $image_url, $product_id, $farmer_id);
+                    } else {
+                        $update_query = "UPDATE products SET name = ?, description = ?, category = ?, price = ?, quantity = ? WHERE id = ? AND farmer_id = ?";
+                        $stmt = $conn->prepare($update_query);
+                        $stmt->bind_param('sssdii', $name, $description, $category, $price, $quantity, $product_id, $farmer_id);
+                    }
+                    if ($stmt->execute()) {
+                        $success = 'Product updated successfully!';
+                    } else {
+                        $error = 'Error updating product';
+                    }
+                    $stmt->close();
                 }
-                $stmt->close();
             }
         }
     }
@@ -183,6 +213,12 @@ $stmt->close();
                 <span style="color: var(--text-dark); font-weight: 500;">
                     <i class="fas fa-user-tie"></i> <?php echo htmlspecialchars($_SESSION['user_name']); ?> (Farmer)
                 </span>
+                <form method="POST" action="farmer-dashboard.php" style="display: inline;">
+                    <input type="hidden" name="action" value="delete_account">
+                    <button type="submit" class="btn-delete" style="margin-right: 0.75rem;" onclick="return confirm('Delete your account permanently? This cannot be undone.')">
+                        <i class="fas fa-user-slash"></i> Delete Account
+                    </button>
+                </form>
                 <form method="POST" action="logout.php" style="display: inline;">
                     <button type="submit" class="logout-btn">
                         <i class="fas fa-sign-out-alt"></i> Logout
@@ -357,7 +393,7 @@ $stmt->close();
 
     <!-- Footer -->
     <footer class="footer">
-        <p>&copy; 2024 AGROBIASHARA. Farmer Dashboard.</p>
+        <p>&copy; 2026 AGROBIASHARA. Farmer Dashboard.</p>
     </footer>
 
     <script>

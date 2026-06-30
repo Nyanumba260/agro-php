@@ -145,7 +145,7 @@ $stmt->close();
 
     <!-- Footer -->
     <footer class="footer">
-        <p>&copy; 2024 AGROBIASHARA. Order Confirmation.</p>
+        <p>&copy; 2026 AGROBIASHARA. Order Confirmation.</p>
     </footer>
 </body>
 </html>

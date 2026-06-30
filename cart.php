@@ -3,6 +3,23 @@ include 'includes/config.php';
 requireRole(ROLE_BUYER);
 
 $user_id = $_SESSION['user_id'];
+$success = '';
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_account') {
+    $delete_query = "DELETE FROM users WHERE id = ?";
+    $stmt = $conn->prepare($delete_query);
+    $stmt->bind_param('i', $user_id);
+    if ($stmt->execute()) {
+        $stmt->close();
+        session_destroy();
+        header('Location: login.php');
+        exit;
+    } else {
+        $error = 'Error deleting account';
+        $stmt->close();
+    }
+}
 
 // Handle remove from cart
 if (isset($_GET['remove'])) {
@@ -75,6 +92,12 @@ $total = $subtotal + $delivery_charge;
                 <a href="index.php" class="btn btn-primary" style="margin: 0;">
                     <i class="fas fa-arrow-left"></i> Continue Shopping
                 </a>
+                <form method="POST" action="cart.php" style="display: inline;">
+                    <input type="hidden" name="action" value="delete_account">
+                    <button type="submit" class="btn-delete" style="margin-right: 0.75rem;" onclick="return confirm('Delete your account permanently? This cannot be undone.')">
+                        <i class="fas fa-user-slash"></i> Delete Account
+                    </button>
+                </form>
                 <form method="POST" action="logout.php" style="display: inline;">
                     <button type="submit" class="logout-btn">
                         <i class="fas fa-sign-out-alt"></i> Logout
@@ -87,6 +110,17 @@ $total = $subtotal + $delivery_charge;
     <!-- Cart Content -->
     <div class="dashboard-container">
         <h1><i class="fas fa-shopping-cart"></i> Shopping Cart</h1>
+        <?php if ($success): ?>
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> <?php echo $success; ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($error): ?>
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
+            </div>
+        <?php endif; ?>
 
         <?php if (empty($cart_items)): ?>
             <div style="text-align: center; padding: 3rem; background: white; border-radius: 8px; margin-top: 2rem;">
@@ -166,7 +200,7 @@ $total = $subtotal + $delivery_charge;
                         </div>
 
                         <a href="checkout.php" class="btn btn-primary" style="width: 100%; text-align: center; display: block; margin-top: 1.5rem; padding: 1rem;">
-                            <i class="fas fa-credit-card"></i> Proceed to Checkout
+                            <i class="fas fa-credit-card"></i> Pay Now
                         </a>
                     </div>
                 </div>

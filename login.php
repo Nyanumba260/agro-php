@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <!-- Footer -->
     <footer class="footer">
-        <p>&copy; 2024 AGROBIASHARA. All rights reserved.</p>
+        <p>&copy; 2026 AGROBIASHARA. All rights reserved.</p>
     </footer>
 </body>
 </html>
