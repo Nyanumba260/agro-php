@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Create order
         $order_query = "INSERT INTO orders (user_id, total_amount, delivery_location, delivery_charge, delivery_address, payment_method, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')";
         $stmt = $conn->prepare($order_query);
-        $stmt->bind_param('iddsss', $user_id, $total, $delivery_location, $delivery_charge, $delivery_address, $payment_method);
+        $stmt->bind_param('idsdss', $user_id, $total, $delivery_location, $delivery_charge, $delivery_address, $payment_method);
 
         if ($stmt->execute()) {
             $order_id = $stmt->insert_id;

@@ -78,7 +78,7 @@ function sendMpesaStkPush($phone, $amount, $order_id) {
     $callback_url = defined('MPESA_CALLBACK_URL') ? MPESA_CALLBACK_URL : '';
 
     if (empty($shortcode) || empty($passkey) || empty($callback_url)) {
-        return ['success' => false, 'message' => 'M-Pesa shortcode, passkey, or callback URL is not configured.'];
+        return ['success' => false, 'message' => 'M-Pesa is not configured correctly. Set your Daraja shortcode, passkey, and a public callback URL such as https://your-ngrok-url/mpesa-callback.php.'];
     }
 
     $phone = normalizeMpesaPhone($phone);
